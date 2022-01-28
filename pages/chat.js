@@ -3,6 +3,8 @@ import React from 'react';
 import appConfig from '../config.json';
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import {username} from './index'
+import {useRouter} from 'next/router';
+import { ButtonSendSticker } from '../source/componentes/buttonsendstiker'
 
 
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlhdCI6MTY0MzMyNjIxMSwiZXhwIjoxOTU4OTAyMjExfQ.gRrCLStZ2zTuPk792aoKiC4oT8wIvs6SSjblKq3waxc';
@@ -10,7 +12,19 @@ const SUPABASE_URL = 'https://zajcahoovitqipubanbd.supabase.co';
 const supaBaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 
+function escutaMensagem(adicionaMensagem) {
+    return supaBaseClient
+    .from('mensagens')
+    .on('INSERT', (respostaLive) => {   
+        adicionaMensagem(respostaLive.new);
+    })
+    .subscribe();
+}
+
+
 export default function ChatPage() {
+    const roteamento = useRouter();
+    const usuarioLogado = roteamento.query.username;
     const [mensagem, setMensagem] = React.useState('');
     const [listaDeMensagens, setListaDeMensagens] = React.useState([]);
 
@@ -20,17 +34,25 @@ export default function ChatPage() {
         .select('*')
         .order('id', {ascending: false})
         .then(({data}) => {
-            console.log('dados da consulta', data);
-            setListaDeMensagens(data);
+/*             console.log('dados da consulta', data);
+ */            setListaDeMensagens(data);
+        });
+        escutaMensagem((novaMensagem)=> {
+            console.log('Nova mensagem',novaMensagem);
+            setListaDeMensagens((valorAtualDaLista)=> {
+                return [
+                    novaMensagem,
+                    ...valorAtualDaLista,
+                ]
+            });
         });
     },[])
 
-console.log(username)
 
 
-    function handleNovaMensagem(novaMensagem, username) {
+    function handleNovaMensagem(novaMensagem) {
         const mensagem = {
-            de: 'username',
+            de: usuarioLogado,
             texto: novaMensagem,
         };
 
@@ -41,10 +63,7 @@ console.log(username)
             ])
             .then(({data}) => {
                 console.log('dados da consulta', data);
-                setListaDeMensagens([
-                    data[0],
-                    ...listaDeMensagens,
-                ]);
+
             });
 
 
@@ -128,6 +147,12 @@ console.log(username)
                                 color: appConfig.theme.colors.neutrals[200],
                             }}
                         />
+                        <ButtonSendSticker
+                            onStickerClick={(sticker) => {
+                                console.log(':sticker:', sticker);
+                                handleNovaMensagem(`:sticker:${sticker}`);
+                            }}
+                        />
                     </Box>
                 </Box>
             </Box>
@@ -154,7 +179,6 @@ function Header() {
 }
 
 function MessageList(props) {
-    console.log(props);
     return (
         <Box
             tag="ul"
@@ -210,7 +234,13 @@ function MessageList(props) {
                                 {(new Date().toLocaleDateString())}
                             </Text>
                         </Box>
-                        {mensagem.texto}
+{/*                         Condicional {mensagem.texto.startsWith(':sticker:').toString()}
+ */}                        {mensagem.texto.startsWith(':sticker:') 
+                            ? (
+                                <Image src={mensagem.texto.replace(':sticker:', '')}/>
+                            ):(
+                                mensagem.texto
+                            )}
                     </Text>
                 );
             })}
